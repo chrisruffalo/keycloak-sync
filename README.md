@@ -50,9 +50,10 @@ The configuration of keycloak comes from a yaml file. A [sample yaml](keycloak-s
 comments for all the options.
 
 ### Merge Behavior
-
+TODO
 
 ### Prune Behavior
+TODO
 
 ## Command Line Options
 Keycloak Sync takes the following command line options:
@@ -118,4 +119,11 @@ users:
 - test3
 [host]$ oc get groups -o yaml | go run cmd/keycloak-sync.go -c keycloak-sample-config.yml -g - | oc apply -f -
 group.user.openshift.io/sso-developers-dev configured
+```
+
+## Build Instructions
+Simple, single build:
+```
+go mod download
+go build cmd/keycloak-sync.go
 ```
