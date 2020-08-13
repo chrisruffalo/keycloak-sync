@@ -1,0 +1,8 @@
+realms:
+- name: sso
+  url: https://auth-sso.apps-crc.testing
+  ssl-verify: true
+  client-id: client
+  client-secret: secret
+  groups: []
+  prune: true

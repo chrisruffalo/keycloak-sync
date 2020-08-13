@@ -1,0 +1,57 @@
+apiVersion: v1
+items:
+  - apiVersion: user.openshift.io/v1
+    kind: Group
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/last-applied-configuration: |
+          {"apiVersion":"user.openshift.io/v1","kind":"Group","metadata":{"annotations":{},"name":"administrators"},"users":["test2"]}
+      creationTimestamp: "2020-08-13T03:06:54Z"
+      managedFields:
+        - apiVersion: user.openshift.io/v1
+          fieldsType: FieldsV1
+          fieldsV1:
+            f:metadata:
+              f:annotations:
+                .: {}
+                f:kubectl.kubernetes.io/last-applied-configuration: {}
+            f:users: {}
+          manager: oc
+          operation: Update
+          time: "2020-08-13T03:06:54Z"
+      name: administrators
+      resourceVersion: "386989"
+      selfLink: /apis/user.openshift.io/v1/groups/administrators
+      uid: 67b290a8-0a7c-409d-8aaf-4e37f2e79eaa
+    users:
+      - test2
+  - apiVersion: user.openshift.io/v1
+    kind: Group
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/last-applied-configuration: |
+          {"apiVersion":"user.openshift.io/v1","kind":"Group","metadata":{"annotations":{},"name":"developers"},"users":["test1","test2"]}
+      creationTimestamp: "2020-08-13T03:03:26Z"
+      managedFields:
+        - apiVersion: user.openshift.io/v1
+          fieldsType: FieldsV1
+          fieldsV1:
+            f:metadata:
+              f:annotations:
+                .: {}
+                f:kubectl.kubernetes.io/last-applied-configuration: {}
+            f:users: {}
+          manager: oc
+          operation: Update
+          time: "2020-08-13T03:06:54Z"
+      name: developers
+      resourceVersion: "386990"
+      selfLink: /apis/user.openshift.io/v1/groups/developers
+      uid: 476cd889-cae1-4bce-a0e2-22939a8f5986
+    users:
+      - test1
+      - test2
+kind: List
+metadata:
+  resourceVersion: ""
+  selfLink: ""
