@@ -4,6 +4,24 @@ A command to sync groups from Keycloak/Red Hat SSO to OpenShift. This command us
 configuration of a realm in Keycloak and then outputs yaml for the required Group(s) object(s) for OpenShift to 
 consume.
 
+## Problem Statement
+Typically, when setting up Keyloak/RH SSO as an OpenShift Authentication Provider, there is a disconnect between the
+user/group mapping in Keycloak and the User/Group objects found in OpenShift. This go command aims to bridge that gap
+by providing a tool that can be automated and used to bridge that gap.
+
+When a user first logs in with an identity provider an OpenShift `User` resource is created with an `Identity` resource
+that serves as the link between the Identity Provider and the OpenShift OAuth mechanism.  What is missing is the group
+information provided by the IdM to allow roles to be bound to the OpenShift groups and ease the overhead of administration.
+
+With OpenShift there is the [ldap-sync command](https://docs.openshift.com/container-platform/4.5/authentication/ldap-syncing.html) which
+`keycloak-sync` aims to replicate to a degree. Prior to this command you would need to sync information from any backing LDAP/AD 
+implementations to OpenShift and skip over Keycloak in order to have any kind of sync. This ignores any User Federation as well
+as multiple LDAP/AD sources or Multiple Realm cluster capability. It is the aim of `keycloak-sync` to close all those gaps.
+
+## Compatibility
+This was tested with OpenShift 4.5 and RH SSO 7.4 but there is no real reason this won't work with OpenShift as far back
+as 3.9 and earlier version of Keycloak/RH SSO. Please create issues for problems with other versions. 
+
 ## Keycloak/SSO Configuration
 
 The Keycloak configuration requires a client for the target realm. This client has limited permissions (can only
