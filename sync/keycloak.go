@@ -203,46 +203,26 @@ func getGroupsAndUsersForRealm(realm RealmConfig) (map[string]Group, error) {
 	return syncGroups, nil
 }
 
-/**
- * merge returns a map of group names to group with all the users merged together. if the sync config specifies
- *       that a merge is _not_ to be done then any groups that have the same name are dropped. the merging is
- *       performed (or dropped) _after_ aliases and prefix/suffix are applied
- */
-func merge(config SyncConfig, realmToGroupsMap map[string]GroupList) map[string]Group {
-	// create target group list
-	target := GroupList{}
-
-	// go based on the order of realms so that the first realm gets priority and subsequent names are dropped in the
-	// event of merge being false
-	for _, realmConfig := range config.Realms {
-		groupsForRealm, found := realmToGroupsMap[realmConfig.Name]
-		// if no groups for given realm name, skip
-		if !found {
-			continue
-		}
-		target = Merge(target, groupsForRealm)
+func GetKeycloakGroupsFromRealm(realm RealmConfig) (GroupList, error) {
+	groupsForRealm, err := getGroupsAndUsersForRealm(realm)
+	if err != nil {
+		return groupsForRealm, err
 	}
-
-	return target
+	if len(groupsForRealm) < 1 {
+		return groupsForRealm, errors.New("no groups returned for realm")
+	}
+	return groupsForRealm, nil
 }
 
 func GetKeycloakGroups(syncConfig SyncConfig) map[string]Group {
-	// this maps each realm to a list of groups, this will be fixed during the "merge"
-	// step to create a canonical list of groups regardless of realm
-	realmToGroupsMap := make(map[string]GroupList)
+	groupList := GroupList{}
 	for _, realm := range syncConfig.Realms {
-		groupsForRealm, err := getGroupsAndUsersForRealm(realm)
+		groupsForRealm, err := GetKeycloakGroupsFromRealm(realm)
 		if err != nil {
-			logrus.Errorf("realm: %s | %s", realm.Name, err)
+			logrus.Errorf("realm %s | %s", realm.Name, err)
 			continue
 		}
-		if len(groupsForRealm) < 1 {
-			logrus.Errorf("realm %s | no groups returned for realm", realm.Name)
-			continue
-		}
-		realmToGroupsMap[realm.Name] = groupsForRealm
+		groupList = Merge(groupList, groupsForRealm)
 	}
-
-	// get the final list of groups
-	return merge(syncConfig, realmToGroupsMap)
+	return groupList
 }
