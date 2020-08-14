@@ -9,16 +9,16 @@ import (
 
 /**
  * GetOpenShiftGroupsFromReader gets the openshift groups by parsing the data in the reader and bending the
- *                              given input model to the SyncGroup struct.
+ *                              given input model to the Group struct.
  */
-func GetOpenShiftGroupsFromReader(config SyncConfig, reader io.Reader) (map[string]SyncGroup, error) {
-	output := make(map[string]SyncGroup)
+func GetOpenShiftGroupsFromReader(config SyncConfig, reader io.Reader) (GroupList, error) {
+	output := GroupList{}
 
 	var buf bytes.Buffer
-	doulbleReader := io.TeeReader(reader, &buf)
+	doubleReader := io.TeeReader(reader, &buf)
 
 	// read yaml or json
-	decoder := yaml.NewYAMLOrJSONDecoder(doulbleReader, 4096)
+	decoder := yaml.NewYAMLOrJSONDecoder(doubleReader, 4096)
 	ocGroups := userapi.GroupList{}
 	err := decoder.Decode(&ocGroups)
 	if err != nil || ocGroups.TypeMeta.Kind == "Group" {
@@ -42,11 +42,11 @@ func GetOpenShiftGroupsFromReader(config SyncConfig, reader io.Reader) (map[stri
 	}
 
 	for _, item := range ocGroups.Items {
-		syncGroup := SyncGroup{
+		syncGroup := Group{
 			Id: "openshift",
 			Source: "openshift",
 			Name: item.Name,
-			Users: make(map[string]SyncUser),
+			Users: make(map[string]User),
 		}
 		// this is the same as "Name" but maintains consistency
 		output[syncGroup.FinalName()] = syncGroup
@@ -57,7 +57,7 @@ func GetOpenShiftGroupsFromReader(config SyncConfig, reader io.Reader) (map[stri
 		}
 		// add users to group if there are users
 		for _, user := range item.Users {
-			syncUser := SyncUser{
+			syncUser := User{
 				Id: "openshift",
 				Name: user,
 				Prune: config.Prune, // uses the config setting so these can be trimmed later

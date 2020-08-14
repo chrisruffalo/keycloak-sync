@@ -1,3 +1,6 @@
 # ignore project files / os files
 .DS_Store
 .idea
+
+# keycloak sample settings for self
+ks.yml

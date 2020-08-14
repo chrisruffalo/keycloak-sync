@@ -12,22 +12,62 @@ import (
 
 func loginKeyCloak(client gocloak.GoCloak, realm RealmConfig) (*gocloak.JWT, error) {
 	ctx := context.Background()
-	token, err := client.LoginClient(ctx, realm.ClientId, realm.ClientSecret, realm.Name)
+
+	clientConfig := realm.ClientConfig
+	userConfig := realm.UserConfig
+
+	var token *gocloak.JWT
+	var err error
+
+	if clientConfig != nil {
+		token, err = client.LoginClient(ctx, clientConfig.ClientId, clientConfig.ClientSecret, realm.Name)
+		if err != nil {
+			return token, err
+		}
+
+		rptResult, err := client.RetrospectToken(ctx, token.AccessToken, clientConfig.ClientId, clientConfig.ClientSecret, realm.Name)
+		if err != nil {
+			return token, err
+		}
+		if rptResult.Active == nil || !(*rptResult.Active) {
+			return token, errors.New("inactive token")
+		}
+	} else if userConfig != nil {
+		// determine where to login
+		loginRealm := userConfig.LoginRealm
+		if len(loginRealm) < 1 {
+			loginRealm = realm.Name
+		}
+		token, err = client.LoginAdmin(ctx, userConfig.Username, userConfig.Password, loginRealm)
+	} else {
+		err = fmt.Errorf("no client or user configuration provided")
+	}
 	if err != nil {
 		return nil, err
-	}
-	rptResult, err := client.RetrospectToken(ctx, token.AccessToken, realm.ClientId, realm.ClientSecret, realm.Name)
-	if err != nil {
-		return token, err
-	}
-	if rptResult.Active == nil || !(*rptResult.Active) {
-		return token, errors.New("inactive token")
 	}
 	return token, nil
 }
 
-func logoutKeyCloak(client gocloak.GoCloak, realm RealmConfig, refreshToken string) error {
-	return client.Logout(context.Background(), realm.ClientId, realm.ClientSecret, realm.Name, refreshToken)
+func logoutKeyCloak(client gocloak.GoCloak, realm RealmConfig, token *gocloak.JWT) error {
+	var err error
+
+	clientConfig := realm.ClientConfig
+	userConfig := realm.UserConfig
+
+	if clientConfig != nil {
+		err = client.Logout(context.Background(), clientConfig.ClientId, clientConfig.ClientSecret, realm.Name, token.RefreshToken)
+	} else if userConfig != nil {
+		// determine where to logout
+		loginRealm := userConfig.LoginRealm
+		if len(loginRealm) < 1 {
+			loginRealm = realm.Name
+		}
+		err = client.LogoutUserSession(context.Background(), token.AccessToken, loginRealm, token.SessionState)
+	} else {
+		err = fmt.Errorf("no client or user configuration provided")
+	}
+
+	return err
 }
 
 func getGroupsForRealm(client gocloak.GoCloak, realm RealmConfig, accessToken string) ([]*gocloak.Group, error){
@@ -43,7 +83,7 @@ func getGroupsForRealm(client gocloak.GoCloak, realm RealmConfig, accessToken st
 	return groups, nil
 }
 
-func getUsersForGroup(client gocloak.GoCloak, realm RealmConfig, group SyncGroup, accessToken string) ([]*gocloak.User, error) {
+func getUsersForGroup(client gocloak.GoCloak, realm RealmConfig, group Group, accessToken string) ([]*gocloak.User, error) {
 	truePtr := true
 	falsePtr := false
 	usersInGroup, err := client.GetGroupMembers(context.Background(), accessToken, realm.Name, group.Id, gocloak.GetGroupsParams{
@@ -59,8 +99,8 @@ func getUsersForGroup(client gocloak.GoCloak, realm RealmConfig, group SyncGroup
 	return usersInGroup, nil
 }
 
-func getGroupsAndUsersForRealm(realm RealmConfig) (map[string]SyncGroup, error) {
-	syncGroups := make(map[string]SyncGroup)
+func getGroupsAndUsersForRealm(realm RealmConfig) (map[string]Group, error) {
+	syncGroups := make(map[string]Group)
 
 	// create client for realm
 	client := gocloak.NewClient(realm.Url)
@@ -76,7 +116,7 @@ func getGroupsAndUsersForRealm(realm RealmConfig) (map[string]SyncGroup, error) 
 	token, err := loginKeyCloak(client, realm)
 	if err != nil {
 		if token != nil && len(token.RefreshToken) > 0 {
-			logoutErr := logoutKeyCloak(client, realm, token.RefreshToken)
+			logoutErr := logoutKeyCloak(client, realm, token)
 			if logoutErr != nil {
 				logrus.Warnf("realm %s | could not log out: %s", realm.Name, err)
 			}
@@ -87,7 +127,7 @@ func getGroupsAndUsersForRealm(realm RealmConfig) (map[string]SyncGroup, error) 
 	// get groups
 	goCloakGroups, err := getGroupsForRealm(client, realm, token.AccessToken)
 	if err != nil {
-		logoutErr := logoutKeyCloak(client, realm, token.RefreshToken)
+		logoutErr := logoutKeyCloak(client, realm, token)
 		if logoutErr != nil {
 			logrus.Warnf("realm %s | could not log out: %s", realm.Name, err)
 		}
@@ -117,14 +157,15 @@ func getGroupsAndUsersForRealm(realm RealmConfig) (map[string]SyncGroup, error) 
 				continue
 			}
 		}
-		group := SyncGroup{
+		group := Group{
 			Id: *keyCloakGroup.ID,
 			Changed: true, // groups from keycloak are always "changed" because it only matters if an openshift group is changed
 			Name: *keyCloakGroup.Name,
 			Prefix: realm.GroupPrefix,
 			Suffix: realm.GroupSuffix,
 			Source: "realm:" + realm.Name,
-			Users: make(map[string]SyncUser),
+			Realms: []string{realm.Name},
+			Users: make(map[string]User),
 		}
 		// check for an alias and if it exists use it
 		if alias, found := realm.Aliases[group.Name]; found {
@@ -147,14 +188,14 @@ func getGroupsAndUsersForRealm(realm RealmConfig) (map[string]SyncGroup, error) 
 				continue
 			}
 			// add user to group map
-			group.Users[*userInGroup.Username] = SyncUser{
+			group.Users[*userInGroup.Username] = User{
 				Id: *userInGroup.ID,
 				Name: *userInGroup.Username,
 			}
 		}
 	}
 
-	err = logoutKeyCloak(client, realm, token.RefreshToken)
+	err = logoutKeyCloak(client, realm, token)
 	if err != nil {
 		logrus.Warnf("realm %s | could not log out: %s", realm.Name, err)
 	}
@@ -167,7 +208,10 @@ func getGroupsAndUsersForRealm(realm RealmConfig) (map[string]SyncGroup, error) 
  *       that a merge is _not_ to be done then any groups that have the same name are dropped. the merging is
  *       performed (or dropped) _after_ aliases and prefix/suffix are applied
  */
-func merge(config SyncConfig, realmToGroupsMap map[string]map[string]SyncGroup, mergeInto map[string]SyncGroup) map[string]SyncGroup {
+func merge(config SyncConfig, realmToGroupsMap map[string]GroupList) map[string]Group {
+	// create target group list
+	target := GroupList{}
+
 	// go based on the order of realms so that the first realm gets priority and subsequent names are dropped in the
 	// event of merge being false
 	for _, realmConfig := range config.Realms {
@@ -176,57 +220,16 @@ func merge(config SyncConfig, realmToGroupsMap map[string]map[string]SyncGroup, 
 		if !found {
 			continue
 		}
-		// cycle through groups in realm and put/merge as needed
-		for _, group := range groupsForRealm {
-			// determine if group is already in map
-			alreadyGroup, alreadyInMap := mergeInto[group.FinalName()]
-			if alreadyInMap {
-				// update realms
-				alreadyGroup.Realms = append(alreadyGroup.Realms, realmConfig.Name)
-				mergeInto[alreadyGroup.FinalName()] = alreadyGroup
-
-				// if we are not configured for merge: warn and continue (drop)
-				if !config.Merge {
-					logrus.Warnf("the group %s already exists from a previous realm, dropping %s's %s group", group.FinalName(), realmConfig.Name, group.FinalName())
-					continue
-				}
-				// proceed with merge behavior
-				for _, user := range group.Users {
-					// if the user is already in the group warn during merge
-					if _, userAlreadyInGroup := alreadyGroup.Users[user.Name]; userAlreadyInGroup {
-						// update user in map
-						doNotPruneUser := mergeInto[alreadyGroup.FinalName()].Users[user.Name]
-						doNotPruneUser.Prune = false
-						mergeInto[alreadyGroup.FinalName()].Users[user.Name] = doNotPruneUser
-
-						// this is supposed to happen for values from openshift, suppress warning
-						if alreadyGroup.Source != "openshift" {
-							logrus.Warnf("User %s already found in group %s", user.Name, group.FinalName())
-						}
-						continue
-					}
-					// set the user as not to be pruned
-					// add user to group
-					alreadyGroup.Users[user.Name] = user
-					// group should be marked as changed (which only applies to openshift-sourced groups)
-					alreadyGroup.Changed = true
-					// gets around a weird issue with the reference to alreadyGroup and changing the value of Changed
-					mergeInto[alreadyGroup.FinalName()] = alreadyGroup
-				}
-			} else {
-				// not already in map so put it there
-				mergeInto[group.FinalName()] = group
-			}
-		}
+		target = Merge(target, groupsForRealm)
 	}
 
-	return mergeInto
+	return target
 }
 
-func GetKeycloakGroups(syncConfig SyncConfig, mergeInto map[string]SyncGroup) map[string]SyncGroup {
+func GetKeycloakGroups(syncConfig SyncConfig) map[string]Group {
 	// this maps each realm to a list of groups, this will be fixed during the "merge"
 	// step to create a canonical list of groups regardless of realm
-	realmToGroupsMap := make(map[string]map[string]SyncGroup)
+	realmToGroupsMap := make(map[string]GroupList)
 	for _, realm := range syncConfig.Realms {
 		groupsForRealm, err := getGroupsAndUsersForRealm(realm)
 		if err != nil {
@@ -241,5 +244,5 @@ func GetKeycloakGroups(syncConfig SyncConfig, mergeInto map[string]SyncGroup) ma
 	}
 
 	// get the final list of groups
-	return merge(syncConfig, realmToGroupsMap, mergeInto)
+	return merge(syncConfig, realmToGroupsMap)
 }

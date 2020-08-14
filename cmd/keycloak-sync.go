@@ -7,10 +7,10 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"io"
+	"k8s.io/apimachinery/pkg/util/json"
 	"keycloak-sync/sync"
 	"os"
 	"strings"
-	"text/template"
 )
 
 const (
@@ -20,26 +20,6 @@ const (
 	_ERROR_CONFIG_MISSING = 101
 	_ERROR_READING_CONFIG = 102
 )
-
-// simple template for OpenShift/k8s Group objects
-const _GROUP_TEMPLATE =
-`{{- range $idx, $group := . -}}
----
-apiVersion: user.openshift.io/v1
-kind: Group
-metadata:
-  name: {{ $group.FinalName }}
-  annotations:
-    "keycloak-sync/last-primary-source": "{{ $group.Source }}"
-    {{- $length := len $group.Realms -}}{{- if gt $length 0 }}
-    "keycloak-sync/realms": "{{ range $index, $realm := $group.Realms }}{{ if $index}}, {{end}}{{ $realm }}{{ end }}"
-	{{- end }}
-users:
-{{- range $user_key, $user := $group.Users }}
-- {{ $user.Name }}
-{{- end -}}
-{{ "\n" }}
-{{- end -}}`
 
 /*
  * Entrypoint for keycloak-sync command.
@@ -83,8 +63,16 @@ func main() {
 		os.Exit(_ERROR_READING_CONFIG)
 	}
 
+	if len(config.Realms) < 1 {
+		logrus.Error("No realms provided in configuration")
+		os.Exit(1)
+	}
+
+	// if we want to track just changed groups this brings in groups from openshift for that
+	onlyChanged := false
+
 	// if openshift groups are provided, read them by figuring out the reader
-	openshiftGroups := make(map[string]sync.SyncGroup)
+	openshiftGroups := sync.GroupList{}
 	groupsFileName := strings.TrimSpace(viper.GetString("groups"))
 	if len(groupsFileName) > 0 {
 		var reader io.Reader
@@ -105,49 +93,32 @@ func main() {
 			logrus.Errorf("Could not read OpenShift group information from '%s': %s", groupsFileName, err)
 			os.Exit(1)
 		}
-	}
-
-	if len(config.Realms) < 1 {
-		logrus.Error("No realms provided in configuration")
-		os.Exit(1)
+		onlyChanged = true
 	}
 
 	// get groups providing the openshift groups as the target for merging on to
-	finalGroups := sync.GetKeycloakGroups(config, openshiftGroups)
+	keycloakGroups := sync.GetKeycloakGroups(config)
+	finalGroups := sync.Merge(openshiftGroups, keycloakGroups)
 
-	// changed groups are the only groups that should be shown in the output, of course if
-	// no openshift source is given all the output will have been "changed"
-	var changedGroups map[string]sync.SyncGroup
-	if len(groupsFileName) > 0 {
-		changedGroups = make(map[string]sync.SyncGroup)
-		for key, value := range finalGroups {
-			// prune before determining change status
-			if config.Prune {
-				value.TrimPrunedUsers()
-			}
-			// if changed then add to the list to be output
-			if value.Changed {
-				changedGroups[key] = value
-			}
-		}
-	} else {
-		// if no group file was provided the changed groups are the final groups
-		changedGroups = finalGroups
-	}
+	// create openshift groups
+	outputGroups := finalGroups.ToOpenShiftGroups(config, onlyChanged)
 
-	// create new expected state
-	tmpl, err := template.New("groups").Parse(_GROUP_TEMPLATE)
+	// encode to json
+	var buf bytes.Buffer
+	encoder := json.NewEncoder(&buf)
+	encoder.SetIndent("", "  ")
+	err = encoder.Encode(outputGroups)
 	if err != nil {
-		logrus.Errorf("Could not parse template: %s", err)
+		logrus.Errorf("Error encoding OpenShift objects: %s", err)
 		os.Exit(1)
 	}
+	_, _ = os.Stdout.Write(buf.Bytes())
 
-	// execute template and trim for output
-	var tpl bytes.Buffer
-	if err := tmpl.Execute(&tpl, changedGroups); err != nil {
-		logrus.Errorf("Could not execute template: %s", err)
-		os.Exit(1)
-	}
-	result := tpl.String()
-	fmt.Print(strings.TrimSpace(result))
+	//buf.Reset()
+	//yEncoder := yaml.NewEncoder(&buf)
+	//yEncoder.SetIndent(2)
+	//yEncoder.Encode(outputGroups)
+	//_, _ = os.Stdout.Write(buf.Bytes())
+
 }
+

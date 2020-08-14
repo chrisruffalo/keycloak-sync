@@ -1,6 +1,3 @@
-# if "true" (default) then groups will be merged by name to have the same users. if "false" then an error will
-# be shown in the log but the output yaml will ONLY use the first group of the name that it finds.
-merge: true
 # if the groups are provided from openshift as with the "-g" option keycloak-sync will work so that
 # the state of keycloak and any changes/groups that were added otherwise will be gone. this _will_ delete
 # any other type of added groups. setting this to "true" means that keycloak is the single overriding source
@@ -10,16 +7,25 @@ prune: true
 # a list of realms to read user and group from
 realms:
   # the realm that will be used as the source for users and groups. this is the name of the realm
-  # as given in keycloak/sso
+  # as given in keycloak/sso. this is case sensitive.
 - name: sso
   # the url to the root of the keycloak/sso instance
-  url: https://auth-sso.apps-crc.testing
+  url: http://localhost:8080
   # allows the setting of ssl-verification for the remote host. set
   # to false when the remote host is insecure
   ssl-verify: false
-  # credentials for the read-only client
-  client-id: sync-client
-  client-secret: edc39d4b-3fdf-4ea5-b8c7-853489224817
+  # authentication requires either a client or a user
+  # credentials for the read-only client.
+  client:
+    client-id: sync-client
+    client-secret: d0a8b5cb-edfe-4e15-83d0-3446850310a7
+  # credentials for a user with the capacity to query the given realm.
+  user:
+    username: admin
+    password: admin
+    # a realm is required if the realm is different than the realm name of current realm.
+    # this is useful if the user is in another realm and has permissions on the current realm.
+    realm: master
   # a list of values to search for the username. this should match the configuration value used when
   # adding an oidc identity provider as in the openshift documentation for the resource type "OAuth".
   # the first match is used. if no values are provided (empty or missing list) then the value of the
@@ -44,7 +50,3 @@ realms:
   # group name. a suffix of "_dev" turns a keycloak group "admin" to
   # "admin_dev"
   group-suffix: "-dev"
-  # if this is set to true then users no longer in the group
-  # will be pruned out. if it is set to false then any old
-  # users will be retained and only new users will be added.
-  prune: true

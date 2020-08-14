@@ -24,7 +24,7 @@ func loadTestGroupFile(testFileName string, t *testing.T) io.Reader {
 	return reader
 }
 
-func testOpenShiftGroupList(syncGroups map[string]SyncGroup, err error, t *testing.T) {
+func testOpenShiftGroupList(syncGroups map[string]Group, err error, t *testing.T) {
 	a := assert.New(t)
 
 	// do not expect any error
@@ -44,7 +44,7 @@ func TestOpenShiftGroupListJSON(t *testing.T) {
 	testOpenShiftGroupList(syncGroups, err, t)
 }
 
-func testOpenShiftSingleGroup(syncGroups map[string]SyncGroup, err error, t *testing.T) {
+func testOpenShiftSingleGroup(syncGroups map[string]Group, err error, t *testing.T) {
 	a := assert.New(t)
 
 	// do not expect any error
