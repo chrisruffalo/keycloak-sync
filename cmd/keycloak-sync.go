@@ -1,13 +1,12 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"io"
-	"k8s.io/apimachinery/pkg/util/json"
+	serializer "k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"keycloak-sync/sync"
 	"os"
 	"strings"
@@ -29,6 +28,7 @@ func main() {
 	// read command line options
 	pflag.StringP("config", "c", "keycloak-sync.yml", "The path to the config file that drives the configuration. A config file is required.")
 	pflag.StringP("groups", "g", "", "The path to the OpenShift group list file (yaml or json) that should be used to reconcile the groups from Keycloak/SSO. Use \"-\" to provide on stdin.")
+	pflag.StringP("format", "f", "yaml", "The output format, either json or yaml. If json is not chosen any other value will result in yaml. Not case sensitive.")
 	pflag.BoolP("keycloak-debug", "D", false, "Debug the rest input/output of the keycloak exchange.")
 	pflag.BoolP("help", "h", false, "Print the help message")
 	pflag.Parse()
@@ -85,7 +85,7 @@ func main() {
 				os.Exit(1)
 			}
 		} else {
-			logrus.Errorf("No file named '%s' fround as source for OpenShift groups")
+			logrus.Errorf("No file named '%s' fround as source for OpenShift groups", groupsFileName)
 			os.Exit(1)
 		}
 		openshiftGroups, err = sync.GetOpenShiftGroupsFromReader(config, reader)
@@ -103,22 +103,17 @@ func main() {
 	// create openshift groups
 	outputGroups := finalGroups.ToOpenShiftGroups(config, onlyChanged)
 
-	// encode to json
-	var buf bytes.Buffer
-	encoder := json.NewEncoder(&buf)
-	encoder.SetIndent("", "  ")
-	err = encoder.Encode(outputGroups)
+	// encode to output format
+	format := strings.ToLower(strings.TrimSpace(viper.GetString("format")))
+	ser := serializer.NewSerializerWithOptions(serializer.DefaultMetaFactory, nil, nil, serializer.SerializerOptions{
+		Yaml:   "json" != format,
+		Pretty: true,
+		Strict: true,
+	})
+	err = ser.Encode(&outputGroups, os.Stdout)
 	if err != nil {
-		logrus.Errorf("Error encoding OpenShift objects: %s", err)
-		os.Exit(1)
+		logrus.Errorf("Error encoding output groups: %s", err)
 	}
-	_, _ = os.Stdout.Write(buf.Bytes())
-
-	//buf.Reset()
-	//yEncoder := yaml.NewEncoder(&buf)
-	//yEncoder.SetIndent(2)
-	//yEncoder.Encode(outputGroups)
-	//_, _ = os.Stdout.Write(buf.Bytes())
-
+	fmt.Print("\n")
 }
 
