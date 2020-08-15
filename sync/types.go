@@ -14,7 +14,7 @@ import (
  */
 type GroupList map[string]Group
 
-func FromOpenShiftGroups(config SyncConfig, groupList userapi.GroupList) GroupList {
+func FromOpenShiftGroups(config Config, groupList userapi.GroupList) GroupList {
 	groups := &GroupList{}
 
 	// for each item create a group item
@@ -63,6 +63,9 @@ func Merge(targetGroup GroupList, sourceGroup GroupList) GroupList {
 				alreadyGroup.Changed = true
 				// gets around a weird issue with the reference to alreadyGroup and changing the value of Changed
 				outputGroup[alreadyGroup.FinalName()] = alreadyGroup
+
+				// todo: add children
+				// todo: add... parents?
 			}
 		} else {
 			// not already in map so put it there
@@ -74,7 +77,7 @@ func Merge(targetGroup GroupList, sourceGroup GroupList) GroupList {
 }
 
 
-func (sgs *GroupList) ToOpenShiftGroups(config SyncConfig, onlyChanged bool) userapi.GroupList {
+func (sgs *GroupList) ToOpenShiftGroups(config Config, onlyChanged bool) userapi.GroupList {
 	// create group shell
 	groups := &userapi.GroupList{
 		TypeMeta: v1.TypeMeta{
@@ -114,28 +117,37 @@ func (sgs GroupList) copy() GroupList {
 
 type Group struct {
 	// properties from external source
-	Id          string
-	Name     	string
-	Alias       string
-	Users       map[string]User
+	Id          		string
 
-	// properties from configuration
-	Prefix		string
-	Suffix      string
+	// naming configuration
+	Name     			string
+	Alias       		string
+	Prefix				string
+	Suffix     			string
+	SubgroupConcat 		bool
+	SubgroupSeparator 	string
+
+	// map of user names -> user
+	Users       		map[string]User
+
+	// hierarchy of groups/subgroups
+	Parent      		*Group
+	Children    		map[string]Group
+
 
 	// properties that tie the group to where it came from
-	Source      string
+	Source      		string
 	// and a list of realms where it came from (if any)
-	Realms      []string
+	Realms      		[]string
 
 	// updated when a meaningful change is made to the
 	// group. this is used to provide filtering when
 	// the group is sourced from openshift and is either
 	// pruned to empty or is changed
-	Changed     bool
+	Changed     		bool
 }
 
-func FromOpenShiftGroup(config SyncConfig, group userapi.Group) Group {
+func FromOpenShiftGroup(config Config, group userapi.Group) Group {
 	userMap := make(map[string]User)
 
 	// add users to user map
@@ -151,9 +163,11 @@ func FromOpenShiftGroup(config SyncConfig, group userapi.Group) Group {
 		Id:      group.Name,
 		Name:    group.Name,
 		Alias:   "",
-		Users:   userMap,
 		Prefix:  "",
 		Suffix:  "",
+		Users:   userMap,
+		Parent:  nil,
+		Children: map[string]Group{},
 		Source:  "openshift",
 		Realms:  []string{},
 		Changed: false,
@@ -173,6 +187,23 @@ func (sg Group) FinalName() string {
 	if len(sg.Prefix) > 0 {
 		builder.WriteString(sg.Prefix)
 	}
+	if sg.SubgroupConcat && sg.Parent != nil {
+		parentNames := make([]string, 0)
+		parent := sg.Parent
+		for ; parent != nil; {
+			parentNames = append([]string{parent.Name}, parentNames...)
+			parent = parent.Parent
+		}
+		// only continue if more names are found
+		if len(parentNames) > 0 {
+			nameSeparator := sg.SubgroupSeparator
+			if len(strings.TrimSpace(nameSeparator)) < 1 {
+				nameSeparator = "."
+			}
+			builder.WriteString(strings.Join(parentNames, nameSeparator))
+			builder.WriteString(nameSeparator)
+		}
+	}
 	builder.WriteString(sg.Name)
 	if len(sg.Suffix) > 0 {
 		builder.WriteString(sg.Suffix)
@@ -180,7 +211,7 @@ func (sg Group) FinalName() string {
 	return builder.String()
 }
 
-func (sg *Group) ToOpenShiftGroup(config SyncConfig) (userapi.Group, bool) {
+func (sg *Group) ToOpenShiftGroup(config Config) (userapi.Group, bool) {
 	// list of users
 	users := userapi.OptionalNames{}
 
@@ -205,7 +236,7 @@ func (sg *Group) ToOpenShiftGroup(config SyncConfig) (userapi.Group, bool) {
 			APIVersion: userapi.GroupVersion.Version,
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name: sg.Name,
+			Name: sg.FinalName(),
 		},
 		Users:      users,
 	}
@@ -223,19 +254,6 @@ func (sg *Group) ToOpenShiftGroup(config SyncConfig) (userapi.Group, bool) {
 	return *openshiftGroup, sg.Changed || changed
 }
 
-/*
- * TrimPrunedUsers removes any user that is marked to be pruned
- *                 and then sets the group to changed
- */
-func (sg *Group) TrimPrunedUsers() {
-	for key, value := range sg.Users {
-		if value.Prune {
-			delete(sg.Users, key)
-			sg.Changed = true
-		}
-	}
-}
-
 func (sg Group) copy() Group {
 	users := make(map[string]User)
 
@@ -249,17 +267,33 @@ func (sg Group) copy() Group {
 	realms := make([]string, 0, len(sg.Realms))
 	copy(realms, sg.Realms)
 
-	return Group{
+	children := make(map[string]Group)
+	for _, child := range sg.Children {
+		children[child.Name] = child.copy()
+	}
+
+	group := Group{
 		Id:      sg.Id,
 		Name:    sg.Name,
 		Alias:   sg.Alias,
-		Users:   users,
 		Prefix:  sg.Prefix,
 		Suffix:  sg.Suffix,
+		SubgroupConcat: sg.SubgroupConcat,
+		SubgroupSeparator: sg.SubgroupSeparator,
+		Users:   users,
 		Source:  sg.Source,
 		Realms:  realms,
 		Changed: sg.Changed,
+		Children: children,
 	}
+
+	// copy parent
+	if sg.Parent != nil {
+		parent := sg.Parent.copy()
+		group.Parent = &parent
+	}
+
+	return group
 }
 
 /*

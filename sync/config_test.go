@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func loadTestConfigWithError(testFileName string, t *testing.T) (SyncConfig, error) {
+func loadTestConfigWithError(testFileName string, t *testing.T) (Config, error) {
 	// load configuration
 	_, filename, _, _ := runtime.Caller(0)
 	parent := filepath.Dir(filename)
@@ -17,7 +17,7 @@ func loadTestConfigWithError(testFileName string, t *testing.T) (SyncConfig, err
 	return LoadConfig(configPath)
 }
 
-func loadTestConfig(testFileName string, t *testing.T) SyncConfig {
+func loadTestConfig(testFileName string, t *testing.T) Config {
 	config, err := loadTestConfigWithError(testFileName, t)
 	if err != nil {
 		t.Errorf("Failed to load config file: %s", err)

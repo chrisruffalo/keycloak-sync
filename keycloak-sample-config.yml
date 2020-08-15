@@ -14,12 +14,11 @@ realms:
   # allows the setting of ssl-verification for the remote host. set
   # to false when the remote host is insecure
   ssl-verify: false
-  # authentication requires either a client or a user
-  # credentials for the read-only client.
+  # credentials for the read-only client. this is required if no `user` is configured
   client:
     client-id: sync-client
     client-secret: d0a8b5cb-edfe-4e15-83d0-3446850310a7
-  # credentials for a user with the capacity to query the given realm.
+  # credentials for a user with the capacity to query the given realm.. this is required if no `client` is configured
   user:
     username: admin
     password: admin
@@ -35,8 +34,12 @@ realms:
   - preferred_username
   - username
   - email
-  # groups to synchronize, empty or null if all groups
+  # groups to synchronize, empty or null if all groups. this is the group name in keycloak/sso and not the
+  # name after the alias or prefix/suffix.
   groups: []
+  # groups to block, empty or null allows all groups. this is the group name in keycloak/sso and not the
+  # name after the alias or prefix/suffix.
+  block-groups: []
   # aliases describe a map of group names _in keycloak_ to a map of group
   # names as you want to see them, aliases override prefix/suffix values
   # so if you want an alias with a prefix/suffix set it in the prefix name
@@ -50,3 +53,15 @@ realms:
   # group name. a suffix of "_dev" turns a keycloak group "admin" to
   # "admin_dev"
   group-suffix: "-dev"
+  # if true then walk the group tree and add subgroups as well
+  subgroups: true
+  # if true then "promote" users by adding them to parent groups as well so that the flat nature of the
+  # openshift groups carries the same semantic value as the hierarchical structure in keycloak
+  subroup-promote-users: true
+  # if true then add the parent group of a subgroup to the name structure so that "administrators/db" becomes
+  # "administrators" and "administrators.db". if the group has an alias name set this will override the alias.
+  # this step happens before prefix and suffix are applied so it would be "prefixgroup.child.childsuffix" or
+  # something like "sso-administrators.databaseAdministrators-dev"
+  subgroup-concat-names: true
+  # the value of the characters between a group and its children. the default value is ".".
+  subgroup-separator: "."

@@ -35,12 +35,12 @@ func testOpenShiftGroupList(syncGroups map[string]Group, err error, t *testing.T
 }
 
 func TestOpenShiftGroupListYAML(t *testing.T) {
-	syncGroups, err := GetOpenShiftGroupsFromReader(SyncConfig{}, loadTestGroupFile("input-group-list.yml", t))
+	syncGroups, err := GetOpenShiftGroupsFromReader(Config{}, loadTestGroupFile("input-group-list.yml", t))
 	testOpenShiftGroupList(syncGroups, err, t)
 }
 
 func TestOpenShiftGroupListJSON(t *testing.T) {
-	syncGroups, err := GetOpenShiftGroupsFromReader(SyncConfig{}, loadTestGroupFile("input-group-list.json", t))
+	syncGroups, err := GetOpenShiftGroupsFromReader(Config{}, loadTestGroupFile("input-group-list.json", t))
 	testOpenShiftGroupList(syncGroups, err, t)
 }
 
@@ -57,11 +57,11 @@ func testOpenShiftSingleGroup(syncGroups map[string]Group, err error, t *testing
 }
 
 func TestOpenShiftSingleGroupYAML(t *testing.T) {
-	syncGroups, err := GetOpenShiftGroupsFromReader(SyncConfig{}, loadTestGroupFile("input-group-single.yml", t))
+	syncGroups, err := GetOpenShiftGroupsFromReader(Config{}, loadTestGroupFile("input-group-single.yml", t))
 	testOpenShiftSingleGroup(syncGroups, err, t)
 }
 
 func TestOpenShiftSingleGroupJSON(t *testing.T) {
-	syncGroups, err := GetOpenShiftGroupsFromReader(SyncConfig{}, loadTestGroupFile("input-group-single.json", t))
+	syncGroups, err := GetOpenShiftGroupsFromReader(Config{}, loadTestGroupFile("input-group-single.json", t))
 	testOpenShiftSingleGroup(syncGroups, err, t)
 }

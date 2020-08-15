@@ -10,6 +10,17 @@ import (
 	"github.com/spf13/viper"
 )
 
+/*
+ * A keycloakEnhancedGroup is an enhancement for a gocloak.Group that
+ * allows keeping tabs of which group is the parent and resolving that
+ * during processing as well as pushing up users to parent groups to
+ * ensure that hierarchical membership is honored
+ */
+type keycloakEnhancedGroup struct {
+	group  *gocloak.Group
+	parent *Group
+}
+
 func loginKeyCloak(client gocloak.GoCloak, realm RealmConfig) (*gocloak.JWT, error) {
 	ctx := context.Background()
 
@@ -70,7 +81,7 @@ func logoutKeyCloak(client gocloak.GoCloak, realm RealmConfig, token *gocloak.JW
 	return err
 }
 
-func getGroupsForRealm(client gocloak.GoCloak, realm RealmConfig, accessToken string) ([]*gocloak.Group, error){
+func getGroupsForRealm(client gocloak.GoCloak, realm RealmConfig, accessToken string) (*[]*gocloak.Group, error){
 	// get all groups and users for each group
 	groups, err := client.GetGroups(context.Background(), accessToken, realm.Name, gocloak.GetGroupsParams{})
 	if err != nil {
@@ -80,7 +91,7 @@ func getGroupsForRealm(client gocloak.GoCloak, realm RealmConfig, accessToken st
 		return nil, fmt.Errorf("a nil response not expected for groups from realm %s", realm.Name)
 	}
 
-	return groups, nil
+	return &groups, nil
 }
 
 func getUsersForGroup(client gocloak.GoCloak, realm RealmConfig, group Group, accessToken string) ([]*gocloak.User, error) {
@@ -134,6 +145,16 @@ func getGroupsAndUsersForRealm(realm RealmConfig) (map[string]Group, error) {
 		return syncGroups, err
 	}
 
+	// enhance groups
+	enhancedGroups := make([]*keycloakEnhancedGroup, 0, len(*goCloakGroups))
+	for _, keycloakGroup := range *goCloakGroups {
+		enhancedGroups = append(enhancedGroups, &keycloakEnhancedGroup{
+			group: keycloakGroup,
+			parent: nil,
+		})
+	}
+	enhancedGroupsPtr := &enhancedGroups
+
 	// make a bit of a set out of the groups for the realm if it is set so that we can filter based on group name
 	// in other words "these groups" are the only groups we are looking for. the map -> bool is a cheap-ish
 	// way to make a "set" (like a HashSet<String> in java) so that we can do "contains" instead of scanning
@@ -145,34 +166,72 @@ func getGroupsAndUsersForRealm(realm RealmConfig) (map[string]Group, error) {
 		}
 	}
 
+	// similarly we have a list of blocked groups, generally both blocked and allowed groups shouldn't be used
+	// at the same time but the logic is fairly cheap so we can keep them both in there at the same time
+	notTheseGroups := make(map[string]bool)
+	if len(realm.BlockedGroups) > 0 {
+		for _, gName := range realm.BlockedGroups {
+			notTheseGroups[gName] = true
+		}
+	}
+
 	// now we have all the groups in the target realm
-	for _, keyCloakGroup := range goCloakGroups {
-		if keyCloakGroup == nil || keyCloakGroup.Name == nil {
+	idx := 0
+	for ;; {
+		// break when index is greater
+		if idx >= len(*enhancedGroupsPtr) {
+			break
+		}
+
+		// get then increment index
+		keyCloakGroup := (*enhancedGroupsPtr)[idx]
+		idx++
+
+		if keyCloakGroup == nil || keyCloakGroup.group == nil || keyCloakGroup.group.Name == nil {
 			continue
 		}
 		// if there are values in the group filter we are searching for only "these groups" and so we are skipping
 		// any of the groups not found in "these groups"
 		if len(theseGroups) > 0 {
-			if _, found := theseGroups[*keyCloakGroup.Name]; !found {
+			if _, found := theseGroups[*keyCloakGroup.group.Name]; !found {
+				continue
+			}
+		}
+		// if the group name is in the set of blocked groups then reject/skip
+		if len(notTheseGroups) > 0 {
+			if _, found := notTheseGroups[*keyCloakGroup.group.Name]; found {
 				continue
 			}
 		}
 		group := Group{
-			Id: *keyCloakGroup.ID,
+			Id: *keyCloakGroup.group.ID,
 			Changed: true, // groups from keycloak are always "changed" because it only matters if an openshift group is changed
-			Name: *keyCloakGroup.Name,
+			Name: *keyCloakGroup.group.Name,
 			Prefix: realm.GroupPrefix,
 			Suffix: realm.GroupSuffix,
+			SubgroupConcat: realm.SubgroupConcat,
+			SubgroupSeparator: realm.SubgroupSeparator,
 			Source: "realm:" + realm.Name,
 			Realms: []string{realm.Name},
 			Users: make(map[string]User),
+			Parent: keyCloakGroup.parent,
 		}
 		// check for an alias and if it exists use it
 		if alias, found := realm.Aliases[group.Name]; found {
 			group.Alias = alias
 		}
 		// add found group to map
-		syncGroups[group.Name] = group
+		syncGroups[group.FinalName()] = group
+
+		// if configured: add subgroups to the list of groups to process
+		if realm.Subgroups && keyCloakGroup.group.SubGroups != nil && len(*keyCloakGroup.group.SubGroups) > 0 {
+			for _, subgroup := range *keyCloakGroup.group.SubGroups {
+				*enhancedGroupsPtr = append(*enhancedGroupsPtr, &keycloakEnhancedGroup{
+					group:  &subgroup,
+					parent: &group,
+				})
+			}
+		}
 	}
 
 	// establish the users that belong to the group
@@ -191,6 +250,19 @@ func getGroupsAndUsersForRealm(realm RealmConfig) (map[string]Group, error) {
 			group.Users[*userInGroup.Username] = User{
 				Id: *userInGroup.ID,
 				Name: *userInGroup.Username,
+			}
+			if realm.SubgroupUsers {
+				// recursively add user to all parent groups
+				parentGroup := group.Parent
+				for ; parentGroup != nil; {
+					if _, found := parentGroup.Users[*userInGroup.Username]; !found {
+						parentGroup.Users[*userInGroup.Username] = User{
+							Id:   *userInGroup.ID,
+							Name: *userInGroup.Username,
+						}
+					}
+					parentGroup = parentGroup.Parent
+				}
 			}
 		}
 	}
@@ -214,7 +286,7 @@ func GetKeycloakGroupsFromRealm(realm RealmConfig) (GroupList, error) {
 	return groupsForRealm, nil
 }
 
-func GetKeycloakGroups(syncConfig SyncConfig) map[string]Group {
+func GetKeycloakGroups(syncConfig Config) map[string]Group {
 	groupList := GroupList{}
 	for _, realm := range syncConfig.Realms {
 		groupsForRealm, err := GetKeycloakGroupsFromRealm(realm)

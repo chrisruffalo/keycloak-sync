@@ -11,7 +11,7 @@ import (
  * GetOpenShiftGroupsFromReader gets the openshift groups by parsing the data in the reader and bending the
  *                              given input model to the Group struct.
  */
-func GetOpenShiftGroupsFromReader(config SyncConfig, reader io.Reader) (GroupList, error) {
+func GetOpenShiftGroupsFromReader(config Config, reader io.Reader) (GroupList, error) {
 	output := GroupList{}
 
 	var buf bytes.Buffer

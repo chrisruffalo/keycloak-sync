@@ -26,21 +26,26 @@ type RealmConfig struct {
 	SslVerify			bool				`mapstructure:"ssl-verify"`
 	PreferredUsername   []string            `mapstructure:"preferred-username"`
 	Groups              []string 			`mapstructure:"groups"`
+	BlockedGroups       []string   			`mapstructure:"blocked-groups"`
 	GroupPrefix			string				`mapstructure:"group-prefix"`
 	GroupSuffix			string				`mapstructure:"group-suffix"`
 	Aliases             map[string]string 	`mapstructure:"aliases"`
 	Prune				bool				`mapstructure:"prune"`
+	Subgroups			bool				`mapstructure:"subgroups"`
+	SubgroupUsers		bool				`mapstructure:"subroup-promote-users"`
+	SubgroupConcat   	bool				`mapstructure:"subgroup-concat-names"`
+	SubgroupSeparator   string				`mapstructure:"subgroup-separator"`
 }
 
-type SyncConfig struct {
+type Config struct {
 	Realms 				[]RealmConfig `mapstructure:"realms" validate:"dive"`
 	Prune               bool          `mapstructure:"prune"`
 }
 
-func LoadConfig(path string) (SyncConfig, error) {
+func LoadConfig(path string) (Config, error) {
 	// create default config with all the fields set to the defaults
 	// where the default for that type is different
-	config := SyncConfig{}
+	config := Config{}
 
 	viper.SetConfigFile(path)
 	err := viper.ReadInConfig()
