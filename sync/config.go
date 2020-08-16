@@ -26,7 +26,8 @@ type RealmConfig struct {
 	SslVerify			bool				`mapstructure:"ssl-verify"`
 	PreferredUsername   []string            `mapstructure:"preferred-username"`
 	Groups              []string 			`mapstructure:"groups"`
-	BlockedGroups       []string   			`mapstructure:"blocked-groups"`
+	BlockedGroups       []string   			`mapstructure:"block-groups"`
+	BlockedNames        []string            `mapstructure:"block-group-names"`
 	GroupPrefix			string				`mapstructure:"group-prefix"`
 	GroupSuffix			string				`mapstructure:"group-suffix"`
 	Aliases             map[string]string 	`mapstructure:"aliases"`

@@ -35,11 +35,22 @@ realms:
   - username
   - email
   # groups to synchronize, empty or null if all groups. this is the group name in keycloak/sso and not the
-  # name after the alias or prefix/suffix.
+  # name after the alias or prefix/suffix. if this option is used individual queries will be made to the
+  # keycloak server for each group name. this finds groups if they are a subgroup even if "subgroups" is set
+  # to false.
   groups: []
   # groups to block, empty or null allows all groups. this is the group name in keycloak/sso and not the
-  # name after the alias or prefix/suffix.
+  # name after the alias or prefix/suffix. this option will hit subgroups with the same name in different
+  # trees so that something like "test" will block both "/admins/test" and "/developers/test"
   block-groups: []
+  # groups to block after the final name is calculated. this removes groups after the final name is calculated
+  # so that if there were three hierarchies like /admins/stage, /developers/stage, and /testers/stage and you
+  # the intent was to have admins.stage and developers.stage but not testers.stage you could put "stage" as
+  # the value in the groups item and then block "testers.stage" here. This can also be used if a subgroup has
+  # a lot of subgroups itself that are wanted but not the intermediary group like "/admins/databases/{pg,sql,oracle}"
+  # and the groups "admins" and "admins.databases.pg", "admins.databases.sql", and "admins.databases.oracle" are
+  # needed but not "admins.databases"
+  block-group-names: []
   # aliases describe a map of group names _in keycloak_ to a map of group
   # names as you want to see them, aliases override prefix/suffix values
   # so if you want an alias with a prefix/suffix set it in the prefix name

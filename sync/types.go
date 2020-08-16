@@ -90,6 +90,11 @@ func (sgs *GroupList) ToOpenShiftGroups(config Config, onlyChanged bool) userapi
 
 	// convert the group map into openshift groups
 	for _, group := range *sgs {
+		// don't convert skipped groups
+		if group.Skipped {
+			continue
+		}
+
 		openshiftGroup, changed := group.ToOpenShiftGroup(config)
 
 		// if we are only looking for changed group and the group
@@ -131,9 +136,9 @@ type Group struct {
 	Users       		map[string]User
 
 	// hierarchy of groups/subgroups
+	Path                string
 	Parent      		*Group
 	Children    		map[string]Group
-
 
 	// properties that tie the group to where it came from
 	Source      		string
@@ -145,6 +150,11 @@ type Group struct {
 	// the group is sourced from openshift and is either
 	// pruned to empty or is changed
 	Changed     		bool
+
+	// set to true if this group was previously skipped.
+	// if the group was previously skipped that doesn't
+	// mean that the children should be
+	Skipped             bool
 }
 
 func FromOpenShiftGroup(config Config, group userapi.Group) Group {
@@ -191,7 +201,9 @@ func (sg Group) FinalName() string {
 		parentNames := make([]string, 0)
 		parent := sg.Parent
 		for ; parent != nil; {
-			parentNames = append([]string{parent.Name}, parentNames...)
+			if !parent.Skipped {
+				parentNames = append([]string{parent.Name}, parentNames...)
+			}
 			parent = parent.Parent
 		}
 		// only continue if more names are found
@@ -276,6 +288,7 @@ func (sg Group) copy() Group {
 		Id:      sg.Id,
 		Name:    sg.Name,
 		Alias:   sg.Alias,
+		Path:    sg.Path,
 		Prefix:  sg.Prefix,
 		Suffix:  sg.Suffix,
 		SubgroupConcat: sg.SubgroupConcat,
@@ -285,6 +298,7 @@ func (sg Group) copy() Group {
 		Realms:  realms,
 		Changed: sg.Changed,
 		Children: children,
+		Skipped: sg.Skipped,
 	}
 
 	// copy parent

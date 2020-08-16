@@ -35,8 +35,8 @@ func TestBasicConfig(t *testing.T) {
 	realm := config.Realms[0]
 	a.Equal("sso", realm.Name)
 	a.Equal(true, realm.SslVerify)
-	a.Equal("client", realm.ClientId)
-	a.Equal("secret", realm.ClientSecret)
+	a.Equal("client", realm.ClientConfig.ClientId)
+	a.Equal("secret", realm.ClientConfig.ClientSecret)
 }
 
 func TestRealmMissingName(t *testing.T) {
