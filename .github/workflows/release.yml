@@ -8,7 +8,6 @@ on:
 
 jobs:
   build_and_release:
-    needs: create_release
     strategy:
       matrix:
         go-version: [1.15.x]
@@ -25,7 +24,6 @@ jobs:
         run: make test
       - name: Build Artifact for Target
         run: make build
-      - name: Upload Artifact
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
