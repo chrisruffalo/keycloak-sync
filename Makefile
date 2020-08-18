@@ -30,6 +30,9 @@ GOGET=$(GOCMD) get
 BUILD_DIR=$(MKFILE_DIR)/build
 BINARY_NAME=keycloak-sync
 
+# build output
+FINAL_NAME?=$(BINARY_NAME)-$(GOOS)-$(GOARCH)$(GOARM)
+
 # get version and hash from git if not pas$(SED) in
 VERSION?=$(shell git describe --tags $$(git rev-list --tags --max-count=1) | $(SED) -r -e 's/([^0-9.-]*)?-?v?([0-9.]*)-?([^-]*)?-?([^-]*)?/v\2/')
 LONGVERSION?=$(shell git describe --tags | $(SED) 's/^$$/$(VERSION)/')
@@ -74,7 +77,7 @@ build: announce  ## Build Binary
 		# create build output dir
 		mkdir -p $(BUILD_DIR)
 		# create embeded resources
-		$(GOBUILD) --tags "$(GO_BUILD_TAGS)" -ldflags "$(GO_LD_FLAGS)" -o "$(BUILD_DIR)/$(BINARY_NAME)-$(GOOS)-$(GOARCH)$(GOARM)" cmd/keycloak-sync.go
+		$(GOBUILD) --tags "$(GO_BUILD_TAGS)" -ldflags "$(GO_LD_FLAGS)" -o "$(BUILD_DIR)/$(FINAL_NAME)" cmd/keycloak-sync.go
 
 test: ## Do Unit Tests
 		$(GODOWN)
