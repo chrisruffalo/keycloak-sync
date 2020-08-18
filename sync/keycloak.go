@@ -86,7 +86,7 @@ func logoutKeyCloak(client gocloak.GoCloak, realm RealmConfig, token *gocloak.JW
  *                 the keycloak api returns the _root_ group given for a subgroup name this needs to walk up the tree and
  *                 then collect and return relevant subgroups or the "by name" will only work for groups at the root level
  */
-func getGroupsByName(client gocloak.GoCloak, realm RealmConfig, accessToken string, groupName string) (*[]*gocloak.Group, error){
+func getGroupsByName(client gocloak.GoCloak, realm RealmConfig, accessToken string, groupName string) (*[]*gocloak.Group, error) {
 	// get all groups and users for each group
 	groups, err := client.GetGroups(context.Background(), accessToken, realm.Name, gocloak.GetGroupsParams{
 		Search: &groupName,
@@ -109,7 +109,7 @@ func getGroupsByName(client gocloak.GoCloak, realm RealmConfig, accessToken stri
 
 	// go through groups and collect up subgroups as well
 	idx := 0
-	for ;; {
+	for {
 		if idx >= len(groups) {
 			break
 		}
@@ -139,8 +139,7 @@ func getGroupsByName(client gocloak.GoCloak, realm RealmConfig, accessToken stri
 	return &outputGroups, nil
 }
 
-
-func getGroupsForRealm(client gocloak.GoCloak, realm RealmConfig, accessToken string) (*[]*gocloak.Group, error){
+func getGroupsForRealm(client gocloak.GoCloak, realm RealmConfig, accessToken string) (*[]*gocloak.Group, error) {
 	// get all groups and users for each group
 	groups, err := client.GetGroups(context.Background(), accessToken, realm.Name, gocloak.GetGroupsParams{})
 	if err != nil {
@@ -157,7 +156,7 @@ func getUsersForGroup(client gocloak.GoCloak, realm RealmConfig, group Group, ac
 	truePtr := true
 	falsePtr := false
 	usersInGroup, err := client.GetGroupMembers(context.Background(), accessToken, realm.Name, group.Id, gocloak.GetGroupsParams{
-		Full: &truePtr,
+		Full:                &truePtr,
 		BriefRepresentation: &falsePtr,
 	})
 	if err != nil {
@@ -235,7 +234,7 @@ func getGroupsAndUsersForRealm(realm RealmConfig) (map[string]Group, error) {
 	enhancedGroups := make([]*keycloakEnhancedGroup, 0, len(*goCloakGroups))
 	for _, keycloakGroup := range *goCloakGroups {
 		enhancedGroups = append(enhancedGroups, &keycloakEnhancedGroup{
-			group: keycloakGroup,
+			group:  keycloakGroup,
 			parent: nil,
 		})
 	}
@@ -263,7 +262,7 @@ func getGroupsAndUsersForRealm(realm RealmConfig) (map[string]Group, error) {
 	// cycle through the groups in a way that allows groups to be added so that subgroups can be added and resolved
 	// without recursion
 	idx := 0
-	for ;; {
+	for {
 		// break when index is greater
 		if idx >= len(enhancedGroups) {
 			break
@@ -290,19 +289,19 @@ func getGroupsAndUsersForRealm(realm RealmConfig) (map[string]Group, error) {
 
 		// create group
 		group := Group{
-			Id: *keyCloakGroup.group.ID,
-			Changed: true, // groups from keycloak are always "changed" because it only matters if an openshift group is changed
-			Name: *keyCloakGroup.group.Name,
-			Path: *keyCloakGroup.group.Path,
-			Prefix: realm.GroupPrefix,
-			Suffix: realm.GroupSuffix,
-			SubgroupConcat: realm.SubgroupConcat,
+			Id:                *keyCloakGroup.group.ID,
+			Changed:           true, // groups from keycloak are always "changed" because it only matters if an openshift group is changed
+			Name:              *keyCloakGroup.group.Name,
+			Path:              *keyCloakGroup.group.Path,
+			Prefix:            realm.GroupPrefix,
+			Suffix:            realm.GroupSuffix,
+			SubgroupConcat:    realm.SubgroupConcat,
 			SubgroupSeparator: realm.SubgroupSeparator,
-			Source: "realm:" + realm.Name,
-			Realms: []string{realm.Name},
-			Users: make(map[string]User),
-			Parent: keyCloakGroup.parent,
-			Skipped: skipped,
+			Source:            "realm:" + realm.Name,
+			Realms:            []string{realm.Name},
+			Users:             make(map[string]User),
+			Parent:            keyCloakGroup.parent,
+			Skipped:           skipped,
 		}
 
 		// check for an alias and if it exists use it
@@ -346,13 +345,13 @@ func getGroupsAndUsersForRealm(realm RealmConfig) (map[string]Group, error) {
 			}
 			// add user to group map
 			group.Users[*userInGroup.Username] = User{
-				Id: *userInGroup.ID,
+				Id:   *userInGroup.ID,
 				Name: *userInGroup.Username,
 			}
 			if realm.SubgroupUsers {
 				// recursively add user to all parent groups
 				parentGroup := group.Parent
-				for ; parentGroup != nil; {
+				for parentGroup != nil {
 					if _, found := parentGroup.Users[*userInGroup.Username]; !found {
 						parentGroup.Users[*userInGroup.Username] = User{
 							Id:   *userInGroup.ID,
@@ -384,15 +383,14 @@ func GetKeycloakGroupsFromRealm(realm RealmConfig) (GroupList, error) {
 	return groupsForRealm, nil
 }
 
-func GetKeycloakGroups(syncConfig Config) map[string]Group {
+func GetKeycloakGroups(syncConfig Config) (map[string]Group, error) {
 	groupList := GroupList{}
 	for _, realm := range syncConfig.Realms {
 		groupsForRealm, err := GetKeycloakGroupsFromRealm(realm)
 		if err != nil {
-			logrus.Errorf("realm %s | %s", realm.Name, err)
-			continue
+			return nil, err
 		}
 		groupList = Merge(groupList, groupsForRealm)
 	}
-	return groupList
+	return groupList, nil
 }

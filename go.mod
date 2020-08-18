@@ -1,4 +1,4 @@
-module keycloak-sync
+module github.com/chrisruffalo/keycloak-sync
 
 go 1.14
 

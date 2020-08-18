@@ -43,10 +43,10 @@ func GetOpenShiftGroupsFromReader(config Config, reader io.Reader) (GroupList, e
 
 	for _, item := range ocGroups.Items {
 		syncGroup := Group{
-			Id: "openshift",
+			Id:     "openshift",
 			Source: "openshift",
-			Name: item.Name,
-			Users: make(map[string]User),
+			Name:   item.Name,
+			Users:  make(map[string]User),
 		}
 		// this is the same as "Name" but maintains consistency
 		output[syncGroup.FinalName()] = syncGroup
@@ -58,8 +58,8 @@ func GetOpenShiftGroupsFromReader(config Config, reader io.Reader) (GroupList, e
 		// add users to group if there are users
 		for _, user := range item.Users {
 			syncUser := User{
-				Id: "openshift",
-				Name: user,
+				Id:    "openshift",
+				Name:  user,
 				Prune: config.Prune, // uses the config setting so these can be trimmed later
 			}
 			syncGroup.Users[syncUser.Name] = syncUser

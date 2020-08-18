@@ -2,20 +2,20 @@ package main
 
 import (
 	"fmt"
+	"github.com/chrisruffalo/keycloak-sync/sync"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"io"
 	serializer "k8s.io/apimachinery/pkg/runtime/serializer/json"
-	"keycloak-sync/sync"
 	"os"
 	"strings"
 )
 
 const (
-	_EXIT_OK              = 0
+	_EXIT_OK = 0
 	// configuration issues
-	_ERROR_NO_CONFIG 	  = 100
+	_ERROR_NO_CONFIG      = 100
 	_ERROR_CONFIG_MISSING = 101
 	_ERROR_READING_CONFIG = 102
 )
@@ -97,7 +97,12 @@ func main() {
 	}
 
 	// get groups providing the openshift groups as the target for merging on to
-	keycloakGroups := sync.GetKeycloakGroups(config)
+	keycloakGroups, err := sync.GetKeycloakGroups(config)
+	if err != nil {
+		logrus.Errorf("An unrecoverable error occurred during sync: %s", err)
+		os.Exit(1)
+	}
+
 	finalGroups := sync.Merge(openshiftGroups, keycloakGroups)
 
 	// create openshift groups
@@ -116,4 +121,3 @@ func main() {
 	}
 	fmt.Print("\n")
 }
-

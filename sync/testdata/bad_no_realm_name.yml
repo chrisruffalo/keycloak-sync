@@ -1,4 +1,5 @@
 realms:
   - url: some.url.com
-    client-id: client
-    client-secret: secret
+    client:
+      client-id: client
+      client-secret: secret

@@ -1,10 +1,10 @@
 package sync
 
 import (
+	"github.com/chrisruffalo/keycloak-sync/constants"
 	userapi "github.com/openshift/api/user/v1"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"keycloak-sync/constants"
 	"strings"
 )
 
@@ -76,7 +76,6 @@ func Merge(targetGroup GroupList, sourceGroup GroupList) GroupList {
 	return outputGroup
 }
 
-
 func (sgs *GroupList) ToOpenShiftGroups(config Config, onlyChanged bool) userapi.GroupList {
 	// create group shell
 	groups := &userapi.GroupList{
@@ -122,39 +121,39 @@ func (sgs GroupList) copy() GroupList {
 
 type Group struct {
 	// properties from external source
-	Id          		string
+	Id string
 
 	// naming configuration
-	Name     			string
-	Alias       		string
-	Prefix				string
-	Suffix     			string
-	SubgroupConcat 		bool
-	SubgroupSeparator 	string
+	Name              string
+	Alias             string
+	Prefix            string
+	Suffix            string
+	SubgroupConcat    bool
+	SubgroupSeparator string
 
 	// map of user names -> user
-	Users       		map[string]User
+	Users map[string]User
 
 	// hierarchy of groups/subgroups
-	Path                string
-	Parent      		*Group
-	Children    		map[string]Group
+	Path     string
+	Parent   *Group
+	Children map[string]Group
 
 	// properties that tie the group to where it came from
-	Source      		string
+	Source string
 	// and a list of realms where it came from (if any)
-	Realms      		[]string
+	Realms []string
 
 	// updated when a meaningful change is made to the
 	// group. this is used to provide filtering when
 	// the group is sourced from openshift and is either
 	// pruned to empty or is changed
-	Changed     		bool
+	Changed bool
 
 	// set to true if this group was previously skipped.
 	// if the group was previously skipped that doesn't
 	// mean that the children should be
-	Skipped             bool
+	Skipped bool
 }
 
 func FromOpenShiftGroup(config Config, group userapi.Group) Group {
@@ -170,17 +169,17 @@ func FromOpenShiftGroup(config Config, group userapi.Group) Group {
 	}
 
 	syncGroup := Group{
-		Id:      group.Name,
-		Name:    group.Name,
-		Alias:   "",
-		Prefix:  "",
-		Suffix:  "",
-		Users:   userMap,
-		Parent:  nil,
+		Id:       group.Name,
+		Name:     group.Name,
+		Alias:    "",
+		Prefix:   "",
+		Suffix:   "",
+		Users:    userMap,
+		Parent:   nil,
 		Children: map[string]Group{},
-		Source:  "openshift",
-		Realms:  []string{},
-		Changed: false,
+		Source:   "openshift",
+		Realms:   []string{},
+		Changed:  false,
 	}
 
 	return syncGroup
@@ -200,7 +199,7 @@ func (sg Group) FinalName() string {
 	if sg.SubgroupConcat && sg.Parent != nil {
 		parentNames := make([]string, 0)
 		parent := sg.Parent
-		for ; parent != nil; {
+		for parent != nil {
 			if !parent.Skipped {
 				parentNames = append([]string{parent.Name}, parentNames...)
 			}
@@ -243,21 +242,21 @@ func (sg *Group) ToOpenShiftGroup(config Config) (userapi.Group, bool) {
 
 	// create openshift group
 	openshiftGroup := &userapi.Group{
-		TypeMeta:   v1.TypeMeta{
+		TypeMeta: v1.TypeMeta{
 			Kind:       "Group",
 			APIVersion: userapi.GroupVersion.Version,
 		},
 		ObjectMeta: v1.ObjectMeta{
 			Name: sg.FinalName(),
 		},
-		Users:      users,
+		Users: users,
 	}
 
 	// add annotations
 	openshiftGroup.SetAnnotations(map[string]string{
-		constants.AnnotationCreatedBy: "keycloak-sync",
+		constants.AnnotationCreatedBy:     "keycloak-sync",
 		constants.AnnotationPrimarySource: sg.Source,
-		constants.AnnotationRealms: strings.Join(sg.Realms, ","),
+		constants.AnnotationRealms:        strings.Join(sg.Realms, ","),
 	})
 
 	// return the group and the status on if it was changed or not
@@ -285,20 +284,20 @@ func (sg Group) copy() Group {
 	}
 
 	group := Group{
-		Id:      sg.Id,
-		Name:    sg.Name,
-		Alias:   sg.Alias,
-		Path:    sg.Path,
-		Prefix:  sg.Prefix,
-		Suffix:  sg.Suffix,
-		SubgroupConcat: sg.SubgroupConcat,
+		Id:                sg.Id,
+		Name:              sg.Name,
+		Alias:             sg.Alias,
+		Path:              sg.Path,
+		Prefix:            sg.Prefix,
+		Suffix:            sg.Suffix,
+		SubgroupConcat:    sg.SubgroupConcat,
 		SubgroupSeparator: sg.SubgroupSeparator,
-		Users:   users,
-		Source:  sg.Source,
-		Realms:  realms,
-		Changed: sg.Changed,
-		Children: children,
-		Skipped: sg.Skipped,
+		Users:             users,
+		Source:            sg.Source,
+		Realms:            realms,
+		Changed:           sg.Changed,
+		Children:          children,
+		Skipped:           sg.Skipped,
 	}
 
 	// copy parent
@@ -314,9 +313,9 @@ func (sg Group) copy() Group {
  * Group represents a single user
  */
 type User struct {
-	Id          string
-	Name		string
-	Prune       bool
+	Id    string
+	Name  string
+	Prune bool
 }
 
 func (u User) copy() User {

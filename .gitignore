@@ -4,3 +4,6 @@
 
 # keycloak sample settings for self
 ks.yml
+
+# build output directory
+build/**

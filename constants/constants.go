@@ -1,7 +1,7 @@
 package constants
 
 const (
-	AnnotationCreatedBy = "keycloak-sync/created-by"
+	AnnotationCreatedBy     = "keycloak-sync/created-by"
 	AnnotationPrimarySource = "keycloak-sync/primary-source"
-	AnnotationRealms = "keycloak-sync/realms"
+	AnnotationRealms        = "keycloak-sync/realms"
 )
