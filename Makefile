@@ -14,6 +14,10 @@ LOCALARCH=$(shell uname -m | $(SED) 's/x86_64/amd64/' | $(SED) -r 's/i?686/386/'
 
 # enable passthrough of architecture flags to go
 GOOS?=$(shell echo $(shell uname) | tr A-Z a-z)
+ifdef OS
+  GOOS="windows"
+endif
+
 GOARCH?=$(LOCALARCH)
 
 # go commands and paths
@@ -30,7 +34,7 @@ GOGET=$(GOCMD) get
 BUILD_DIR=$(MKFILE_DIR)/build
 BINARY_NAME=keycloak-sync
 
-# build output
+# build output name
 FINAL_NAME?=$(BINARY_NAME)-$(GOOS)-$(GOARCH)$(GOARM)
 
 # get version and hash from git if not pas$(SED) in
@@ -48,10 +52,15 @@ OS_BIN_ARCH?=amd64
 OS_ARCH?=x86_64s
 BINARY_TARGET?=$(BINARY_NAME)-$(OS_TYPE)-$(OS_BIN_ARCH)
 
-# set static flag
+# set values that are more sensitive to architecture
 STATIC_FLAG?=-extldflags "-static"
 ifeq ("$(GOOS)", "darwin")
-  STATIC_FLAG=""
+	STATIC_FLAG=""
+endif
+
+# set final name if arch is not set
+ifeq ("x$(GOARCH)", "x")
+	FINAL_NAME?=$(BINARY_NAME)-$(GOOS)$(GOARM)
 endif
 
 # build tags can change by target platform, only linux builds for now though
