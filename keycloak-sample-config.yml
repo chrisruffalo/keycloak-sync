@@ -16,8 +16,8 @@ realms:
   ssl-verify: false
   # credentials for the read-only client. this is required if no `user` is configured
   client:
-    client-id: sync-client
-    client-secret: d0a8b5cb-edfe-4e15-83d0-3446850310a7
+    id: sync-client
+    secret: d0a8b5cb-edfe-4e15-83d0-3446850310a7
   # credentials for a user with the capacity to query the given realm.. this is required if no `client` is configured
   user:
     username: admin
@@ -28,7 +28,7 @@ realms:
   # a list of values to search for the username. this should match the configuration value used when
   # adding an oidc identity provider as in the openshift documentation for the resource type "OAuth".
   # the first match is used. if no values are provided (empty or missing list) then the value of the
-  # "Username" from Keycloak is used.\
+  # "Username" from Keycloak is used.
   # TODO: this does not work yet
   preferred-username:
   - preferred_username

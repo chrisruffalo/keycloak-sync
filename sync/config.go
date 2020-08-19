@@ -5,12 +5,12 @@ import (
 	"github.com/spf13/viper"
 )
 
-type AuthClientConfig struct {
-	ClientId     string `mapstructure:"client-id" validate:"required"`
-	ClientSecret string `mapstructure:"client-secret" validate:"required"`
+type ClientConfig struct {
+	ClientId     string `mapstructure:"id" validate:"required"`
+	ClientSecret string `mapstructure:"secret" validate:"required"`
 }
 
-type AuthUserConfig struct {
+type UserConfig struct {
 	Username string `mapstructure:"username" validate:"required"`
 	Password string `mapstructure:"password" validate:"required"`
 
@@ -19,10 +19,10 @@ type AuthUserConfig struct {
 }
 
 type RealmConfig struct {
-	Name              string            `mapstructure:"name" validate:"required"`
-	Url               string            `mapstructure:"url" validate:"required"`
-	ClientConfig      *AuthClientConfig `mapstructure:"client" validate:"required_without=UserConfig"`
-	UserConfig        *AuthUserConfig   `mapstructure:"user" validate:"required_without=ClientConfig""`
+	Name              string `mapstructure:"name" validate:"required"`
+	Url               string `mapstructure:"url" validate:"required"`
+	*ClientConfig     `mapstructure:"" validate:"required_without=UserConfig"`
+	*UserConfig       `mapstructure:"" validate:"required_without=ClientConfig""`
 	SslVerify         bool              `mapstructure:"ssl-verify"`
 	PreferredUsername []string          `mapstructure:"preferred-username"`
 	Groups            []string          `mapstructure:"groups"`
