@@ -21,8 +21,8 @@ type UserConfig struct {
 type RealmConfig struct {
 	Name              string `mapstructure:"name" validate:"required"`
 	Url               string `mapstructure:"url" validate:"required"`
-	*ClientConfig     `mapstructure:"" validate:"required_without=UserConfig"`
-	*UserConfig       `mapstructure:"" validate:"required_without=ClientConfig""`
+	*ClientConfig     `mapstructure:"client" validate:"required_without=UserConfig"`
+	*UserConfig       `mapstructure:"user" validate:"required_without=ClientConfig"`
 	SslVerify         bool              `mapstructure:"ssl-verify"`
 	PreferredUsername []string          `mapstructure:"preferred-username"`
 	Groups            []string          `mapstructure:"groups"`
