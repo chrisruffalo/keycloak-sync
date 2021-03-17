@@ -3,7 +3,7 @@ realms:
   url: https://auth-sso.apps-crc.testing
   ssl-verify: true
   client:
-    client-id: client
-    client-secret: secret
+    id: client
+    secret: secret
   groups: []
   prune: true
